@@ -1,0 +1,56 @@
+name: Browser Session
+
+on:
+  workflow_dispatch:
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Install deps
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            xvfb x11vnc firefox openbox \
+            novnc websockify curl
+
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared
+
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 2
+
+      - name: Start Openbox
+        run: DISPLAY=:99 openbox &
+
+      - name: Start Firefox
+        run: |
+          DISPLAY=:99 firefox --new-window "https://ipinfo.io/json" &
+          sleep 5
+
+      - name: Start x11vnc
+        run: |
+          x11vnc -display :99 -nopw -forever -shared &
+          sleep 2
+
+      - name: Start noVNC
+        run: |
+          websockify --web=/usr/share/novnc 6080 localhost:5900 &
+          sleep 2
+
+      - name: Start cloudflared tunnel
+        run: |
+          cloudflared tunnel --url http://localhost:6080 &
+          sleep 5
+
+      - name: Print tunnel URL
+        run: |
+          sleep 21600  # тримаємо 6 годин
